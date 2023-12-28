@@ -220,6 +220,7 @@ final class ShuffleExternalSorter extends MemoryConsumer implements ShuffleCheck
           }
         }
 
+        // 通过Pointer获取数据在内存中的地址（page+offset）
         final long recordPointer = sortedRecords.packedRecordPointer.getRecordPointer();
         final Object recordPage = taskMemoryManager.getPage(recordPointer);
         final long recordOffsetInPage = taskMemoryManager.getOffsetInPage(recordPointer);
@@ -227,6 +228,7 @@ final class ShuffleExternalSorter extends MemoryConsumer implements ShuffleCheck
         long recordReadPosition = recordOffsetInPage + uaoSize; // skip over record length
         while (dataRemaining > 0) {
           final int toTransfer = Math.min(diskWriteBufferSize, dataRemaining);
+          // 获取内存中的数据写到磁盘（在内存中是表现是两段空间 数据+数据长度）
           Platform.copyMemory(
             recordPage, recordReadPosition, writeBuffer, Platform.BYTE_ARRAY_OFFSET, toTransfer);
           writer.write(writeBuffer, 0, toTransfer);
@@ -287,6 +289,7 @@ final class ShuffleExternalSorter extends MemoryConsumer implements ShuffleCheck
       spills.size(),
       spills.size() > 1 ? " times" : " time");
 
+    //将序列化数据写入到磁盘
     writeSortedFile(false);
     final long spillSize = freeMemory();
     inMemSorter.reset();
@@ -416,19 +419,24 @@ final class ShuffleExternalSorter extends MemoryConsumer implements ShuffleCheck
       spill();
     }
 
+    // 如果有需要则拓展ShuffleInMemorySorter的内存
     growPointerArrayIfNecessary();
     final int uaoSize = UnsafeAlignedOffset.getUaoSize();
     // Need 4 or 8 bytes to store the record length.
     final int required = length + uaoSize;
+    // 如果有需要则申请新的page
     acquireNewPageIfNecessary(required);
 
     assert(currentPage != null);
     final Object base = currentPage.getBaseObject();
+    // 获取写入内存的地址(pageNum+offset)
     final long recordAddress = taskMemoryManager.encodePageNumberAndOffset(currentPage, pageCursor);
     UnsafeAlignedOffset.putSize(base, pageCursor, length);
     pageCursor += uaoSize;
+    // 将序列化的数据写入相对应的内存中
     Platform.copyMemory(recordBase, recordOffset, base, pageCursor, length);
     pageCursor += length;
+    // 将写入数据的基础信息（逻辑地址+分区Id）写入ShuffleInMemorySorter并且排序
     inMemSorter.insertRecord(recordAddress, partitionId);
   }
 

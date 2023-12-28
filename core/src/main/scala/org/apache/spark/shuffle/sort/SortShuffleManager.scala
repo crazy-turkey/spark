@@ -96,6 +96,9 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       shuffleId: Int,
       dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
     if (SortShuffleWriter.shouldBypassMergeSort(conf, dependency)) {
+      // 判断是否需要切换回hash shuffle机制
+      // 1.先判断是否需要在map端combine;
+      // 2.再判断rdd的分区个数即read task数量是否小于spark.shuffle.sort.bypassMergeThreshold默认200
       // If there are fewer than spark.shuffle.sort.bypassMergeThreshold partitions and we don't
       // need map-side aggregation, then write numPartitions files directly and just concatenate
       // them at the end. This avoids doing serialization and deserialization twice to merge
@@ -104,10 +107,16 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       new BypassMergeSortShuffleHandle[K, V](
         shuffleId, dependency.asInstanceOf[ShuffleDependency[K, V, V]])
     } else if (SortShuffleManager.canUseSerializedShuffle(dependency)) {
+      // 是否满足Tungsten sort Shuffle要求
+      // 1.判断是否支持序列化方式
+      // 2.判断是否需要map端combine
+      // 3.判断dependency分区数numPartitions是否小于MAXIMUM_PARTITION_ID = (1 << 24) - 1;  // 16777215
       // Otherwise, try to buffer map outputs in a serialized form, since this is more efficient:
       new SerializedShuffleHandle[K, V](
         shuffleId, dependency.asInstanceOf[ShuffleDependency[K, V, V]])
     } else {
+      // 否则用Sort Based Shuffle
+      // 如果有map端combine一定是走Sort Base
       // Otherwise, buffer map outputs in a deserialized form:
       new BaseShuffleHandle(shuffleId, dependency)
     }

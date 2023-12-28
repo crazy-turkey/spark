@@ -82,6 +82,7 @@ public abstract class MemoryConsumer {
    */
   public abstract long spill(long size, MemoryConsumer trigger) throws IOException;
 
+  //通过size申请指定大小的LongArray
   /**
    * Allocates a LongArray of `size`. Note that this method may throw `SparkOutOfMemoryError`
    * if Spark doesn't have enough memory for this allocation, or throw `TooLargePageException`
@@ -108,6 +109,7 @@ public abstract class MemoryConsumer {
     freePage(array.memoryBlock());
   }
 
+  //通过size来申请指定大小的page
   /**
    * Allocate a memory block with at least `required` bytes.
    *
@@ -130,6 +132,8 @@ public abstract class MemoryConsumer {
     taskMemoryManager.freePage(page, this);
   }
 
+
+  //通过size来申请指定大小的内存
   /**
    * Allocates memory of `size`.
    */

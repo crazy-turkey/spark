@@ -204,8 +204,12 @@ object SizeEstimator extends Logging {
   }
 
   private def visitSingleObject(obj: AnyRef, state: SearchState): Unit = {
+    // 通过反射获取obj的属性，然后递归估算各个属性的占用大小
     val cls = obj.getClass
     if (cls.isArray) {
+      // 如果是个array的话
+      // 1. 从数据中随机抽成2个子array,每个ARRAY_SAMPLE_SIZE = 100 个元素，且不可重复，然后对子array进行估算 s1 s2
+      // 2. 估算大小为math.max(s1, s2) + (math.min(s1, s2) / ARRAY_SAMPLE_SIZE * (length - ARRAY_SAMPLE_SIZE))
       visitArray(obj, cls, state)
     } else if (cls.getName.startsWith("scala.reflect")) {
       // Many objects in the scala.reflect package reference global reflection objects which, in

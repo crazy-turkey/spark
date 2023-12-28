@@ -59,6 +59,7 @@ private[spark] class PartitionedPairBuffer[K, V](initialCapacity: Int = 64)
     if (capacity >= MAXIMUM_CAPACITY) {
       throw new IllegalStateException(s"Can't insert more than ${MAXIMUM_CAPACITY} elements")
     }
+    // 扩容两倍
     val newCapacity =
       if (capacity * 2 > MAXIMUM_CAPACITY) { // Overflow
         MAXIMUM_CAPACITY

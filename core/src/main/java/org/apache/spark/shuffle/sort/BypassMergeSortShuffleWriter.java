@@ -134,6 +134,7 @@ final class BypassMergeSortShuffleWriter<K, V>
   @Override
   public void write(Iterator<Product2<K, V>> records) throws IOException {
     assert (partitionWriters == null);
+    //LocalDiskShuffleMapOutputWriter
     ShuffleMapOutputWriter mapOutputWriter = shuffleExecutorComponents
         .createMapOutputWriter(shuffleId, mapId, numPartitions);
     try {
@@ -146,9 +147,11 @@ final class BypassMergeSortShuffleWriter<K, V>
       }
       final SerializerInstance serInstance = serializer.newInstance();
       final long openStartTime = System.nanoTime();
+      //为每个partition创建Writer和FileSegment
       partitionWriters = new DiskBlockObjectWriter[numPartitions];
       partitionWriterSegments = new FileSegment[numPartitions];
       for (int i = 0; i < numPartitions; i++) {
+        //遍历partitions并且向BlockManger申请shuffle block并且创建对应的Writer
         final Tuple2<TempShuffleBlockId, File> tempShuffleBlockIdPlusFile =
             blockManager.diskBlockManager().createTempShuffleBlock();
         final File file = tempShuffleBlockIdPlusFile._2();
@@ -168,15 +171,18 @@ final class BypassMergeSortShuffleWriter<K, V>
       while (records.hasNext()) {
         final Product2<K, V> record = records.next();
         final K key = record._1();
+        //根据key将记录通过对应的Writer写到文件中
         partitionWriters[partitioner.getPartition(key)].write(key, record._2());
       }
 
       for (int i = 0; i < numPartitions; i++) {
         try (DiskBlockObjectWriter writer = partitionWriters[i]) {
+          //commit各个writer缓冲区的数据到文件中，并返回对应的segment
           partitionWriterSegments[i] = writer.commitAndGet();
         }
       }
 
+      // 将所有每个分区的文件连接到一个组合文件中
       partitionLengths = writePartitionedData(mapOutputWriter);
       mapStatus = MapStatus$.MODULE$.apply(
         blockManager.shuffleServerId(), partitionLengths, mapId);

@@ -147,10 +147,12 @@ class AppendOnlyMap[K, V](initialCapacity: Int = 64)
         incrementSize()
         return newValue
       } else if (k.eq(curKey) || k.equals(curKey)) {
+        // 如果存在值则用updateFunc进行combine
         val newValue = updateFunc(true, data(2 * pos + 1).asInstanceOf[V])
         data(2 * pos + 1) = newValue.asInstanceOf[AnyRef]
         return newValue
       } else {
+        //如果有hash冲突的话则不断的+1之后再hash,直接到插入成功为止
         val delta = i
         pos = (pos + delta) & mask
         i += 1
@@ -212,6 +214,7 @@ class AppendOnlyMap[K, V](initialCapacity: Int = 64)
 
   /** Double the table's size and re-hash everything */
   protected def growTable(): Unit = {
+    //当超过容量的0.7时触发扩容
     // capacity < MAXIMUM_CAPACITY (2 ^ 29) so capacity * 2 won't overflow
     val newCapacity = capacity * 2
     require(newCapacity <= MAXIMUM_CAPACITY, s"Can't contain more than ${growThreshold} elements")
@@ -220,6 +223,7 @@ class AppendOnlyMap[K, V](initialCapacity: Int = 64)
     // Insert all our old values into the new array. Note that because our old keys are
     // unique, there's no need to check for equality here when we insert.
     var oldPos = 0
+    // 复制到新的array需要遍历旧array重新计算每个key的哈希值
     while (oldPos < capacity) {
       if (!data(2 * oldPos).eq(null)) {
         val key = data(2 * oldPos)
@@ -245,6 +249,7 @@ class AppendOnlyMap[K, V](initialCapacity: Int = 64)
     data = newData
     capacity = newCapacity
     mask = newMask
+    // LOAD_FACTOR = 0.7
     growThreshold = (LOAD_FACTOR * newCapacity).toInt
   }
 
@@ -261,6 +266,7 @@ class AppendOnlyMap[K, V](initialCapacity: Int = 64)
     destroyed = true
     // Pack KV pairs into the front of the underlying array
     var keyIndex, newIndex = 0
+    // 把array内存中不连续的数据（因为有哈希冲突的情况下是不断key+1再去哈希直到没冲突为止）连续的放在一起
     while (keyIndex < capacity) {
       if (data(2 * keyIndex) != null) {
         data(2 * newIndex) = data(2 * keyIndex)

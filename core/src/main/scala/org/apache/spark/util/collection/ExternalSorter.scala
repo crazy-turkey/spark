@@ -197,6 +197,7 @@ private[spark] class ExternalSorter[K, V, C](
         addElementsRead()
         kv = records.next()
         map.changeValue((actualPartitioner.getPartition(kv._1), kv._1), update)
+        // 判断是否需要spill到磁盘
         maybeSpillCollection(usingMap = true)
       }
     } else {
@@ -241,6 +242,7 @@ private[spark] class ExternalSorter[K, V, C](
    * @param collection whichever collection we're using (map or buffer)
    */
   override protected[this] def spill(collection: WritablePartitionedPairCollection[K, C]): Unit = {
+    // 迭代器排序
     val inMemoryIterator = collection.destructiveSortedWritablePartitionedIterator(comparator)
     val spillFile = spillMemoryIteratorToDisk(inMemoryIterator)
     spills += spillFile
@@ -339,9 +341,12 @@ private[spark] class ExternalSorter[K, V, C](
    */
   private def merge(spills: Seq[SpilledFile], inMemory: Iterator[((Int, K), C)])
       : Iterator[(Int, Iterator[Product2[K, C]])] = {
+    // 为所有的spill文件创建对应的SpillReader
     val readers = spills.map(new SpillReader(_))
     val inMemBuffered = inMemory.buffered
     (0 until numPartitions).iterator.map { p =>
+      // 合并/排序每个分区
+      // 将未spill到磁盘的数据和已经spill到磁盘的数据合并成一个新的Iterator
       val inMemIterator = new IteratorForPartition(p, inMemBuffered)
       val iterators = readers.map(_.readNextPartition()) ++ Seq(inMemIterator)
       if (aggregator.isDefined) {
@@ -366,6 +371,8 @@ private[spark] class ExternalSorter[K, V, C](
     val bufferedIters = iterators.filter(_.hasNext).map(_.buffered)
     type Iter = BufferedIterator[Product2[K, C]]
     // Use the reverse order (compare(y,x)) because PriorityQueue dequeues the max
+    // 排序队列把spill+in-memory的数据（BufferedIterator（每个Iter内的数据是有序的））都放到队列中
+    // 并用comparator对每个Iter的首个元素进行比较。实际上是一个归并排序
     val heap = new mutable.PriorityQueue[Iter]()(
       (x: Iter, y: Iter) => comparator.compare(y.head._1, x.head._1))
     heap.enqueue(bufferedIters: _*)  // Will contain only the iterators with hasNext = true
@@ -379,6 +386,7 @@ private[spark] class ExternalSorter[K, V, C](
         val firstBuf = heap.dequeue()
         val firstPair = firstBuf.next()
         if (firstBuf.hasNext) {
+          // 如果这个Iter还有元素，则把这个Iter重新放回排序队列中
           heap.enqueue(firstBuf)
         }
         firstPair
@@ -657,6 +665,7 @@ private[spark] class ExternalSorter[K, V, C](
       }
     } else {
       // Merge spilled and in-memory data
+      // 将内存中的数据和spilled文件合并
       merge(spills.toSeq, destructiveIterator(
         collection.partitionedDestructiveSortedIterator(comparator)))
     }
@@ -824,6 +833,7 @@ private[spark] class ExternalSorter[K, V, C](
         val spillReader = new SpillReader(spillFile)
         nextUpstream = (0 until numPartitions).iterator.flatMap { p =>
           val iterator = spillReader.readNextPartition()
+          // (key,value)->((partitionId,key),value)
           iterator.map(cur => ((p, cur._1), cur._2))
         }
         hasSpilled = true

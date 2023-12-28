@@ -81,15 +81,19 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
    */
   protected def maybeSpill(collection: C, currentMemory: Long): Boolean = {
     var shouldSpill = false
+    // myMemoryThreshold = spark.shuffle.spill.initialMemoryThreshold = 5Mb
     if (elementsRead % 32 == 0 && currentMemory >= myMemoryThreshold) {
       // Claim up to double our current memory from the shuffle memory pool
+      // 扩大2倍内存
       val amountToRequest = 2 * currentMemory - myMemoryThreshold
+      // 通过MemoryConsumer向TaskMemoryManager申请内存
       val granted = acquireMemory(amountToRequest)
       myMemoryThreshold += granted
       // If we were granted too little memory to grow further (either tryToAcquire returned 0,
       // or we already had more memory than myMemoryThreshold), spill the current collection
       shouldSpill = currentMemory >= myMemoryThreshold
     }
+    // numElementsForceSpillThreshold=spark.shuffle.spill.numElementsForceSpillThreshold = Integer.MAX_VALUE
     shouldSpill = shouldSpill || _elementsRead > numElementsForceSpillThreshold
     // Actually spill
     if (shouldSpill) {
@@ -108,6 +112,7 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
    * when there is not enough memory for the task.
    */
   override def spill(size: Long, trigger: MemoryConsumer): Long = {
+    // 当其它的MemoryConsumer申请不到内存时，TaskMemoryManager会通过回调各个MemoryConsumer的spill方法来尝试释放内存
     if (trigger != this && taskMemoryManager.getTungstenMemoryMode == MemoryMode.ON_HEAP) {
       val isSpilled = forceSpill()
       if (!isSpilled) {

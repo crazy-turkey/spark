@@ -179,6 +179,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       while (records.hasNext()) {
         insertRecordIntoSorter(records.next());
       }
+      //合并写入
       closeAndWriteOutput();
       success = true;
     } finally {
@@ -210,6 +211,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       sparkConf,
       writeMetrics);
     serBuffer = new MyByteArrayOutputStream(DEFAULT_INITIAL_SER_BUFFER_SIZE);
+    //序列化流
     serOutputStream = serializer.serializeStream(serBuffer);
   }
 
@@ -240,6 +242,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     final K key = record._1();
     final int partitionId = partitioner.getPartition(key);
     serBuffer.reset();
+    // 将key和value 写入序列化流
     serOutputStream.writeKey(key, OBJECT_CLASS_TAG);
     serOutputStream.writeValue(record._2(), OBJECT_CLASS_TAG);
     serOutputStream.flush();
@@ -247,6 +250,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     final int serializedRecordSize = serBuffer.size();
     assert (serializedRecordSize > 0);
 
+    // 将序列化的内容写入ShuffleExternalSorter中
     sorter.insertRecord(
       serBuffer.getBuf(), Platform.BYTE_ARRAY_OFFSET, serializedRecordSize, partitionId);
   }
