@@ -86,12 +86,12 @@ ERROR_CLASSES_JSON = """
   },
   "CANNOT_CONFIGURE_SPARK_CONNECT": {
     "message": [
-      "Spark Connect server cannot be configured with Spark master; however, found URL for Spark master [<url>]."
+      "Spark Connect server cannot be configured: Existing [<existing_url>], New [<new_url>]."
     ]
   },
-  "CANNOT_CONFIGURE_SPARK_MASTER": {
+  "CANNOT_CONFIGURE_SPARK_CONNECT_MASTER": {
     "message": [
-      "Spark master cannot be configured with Spark Connect server; however, found URL for Spark Connect [<url>]."
+      "Spark Connect server and Spark master cannot be configured together: Spark master [<master_url>], Spark Connect [<connect_url>]."
     ]
   },
   "CANNOT_CONVERT_COLUMN_INTO_BOOL": {
@@ -712,6 +712,11 @@ ERROR_CLASSES_JSON = """
       "No active Spark session found. Please create a new Spark session before running the code."
     ]
   },
+  "NO_OBSERVE_BEFORE_GET" : {
+    "message" : [
+      "Should observe by calling `DataFrame.observe` before `get`."
+    ]
+  },
   "NO_SCHEMA_AND_DRIVER_DEFAULT_SCHEME" : {
     "message" : [
       "Only allows <arg_name> to be a path without scheme, and Spark Driver should use the default scheme to determine the destination file system."
@@ -752,9 +757,24 @@ ERROR_CLASSES_JSON = """
         "Unable to create the Python data source <type> because the '<method>' method hasn't been implemented."
     ]
   },
+  "PYTHON_DATA_SOURCE_READ_INVALID_RETURN_TYPE" : {
+    "message" : [
+        "The data type of the returned value ('<type>') from the Python data source '<name>' is not supported. Supported types: <supported_types>."
+    ]
+  },
+  "PYTHON_DATA_SOURCE_READ_RETURN_SCHEMA_MISMATCH" : {
+    "message" : [
+      "The number of columns in the result does not match the required schema. Expected column count: <expected>, Actual column count: <actual>. Please make sure the values returned by the 'read' method have the same number of columns as required by the output schema."
+    ]
+  },
   "PYTHON_DATA_SOURCE_TYPE_MISMATCH" : {
     "message" : [
       "Expected <expected>, but got <actual>."
+    ]
+  },
+  "PYTHON_DATA_SOURCE_WRITE_ERROR" : {
+    "message" : [
+      "Unable to write to the Python data source: <error>."
     ]
   },
   "PYTHON_HASH_SEED_NOT_SET" : {
@@ -813,6 +833,16 @@ ERROR_CLASSES_JSON = """
       "Columns do not match in their data type: <mismatch>."
     ]
   },
+  "RETRIES_EXCEEDED" : {
+    "message" : [
+      "The maximum number of retries has been exceeded."
+    ]
+  },
+  "REUSE_OBSERVATION" : {
+    "message" : [
+      "An Observation can be used with a DataFrame only once."
+    ]
+  },
   "SCHEMA_MISMATCH_FOR_PANDAS_UDF" : {
     "message" : [
       "Result vector from pandas_udf was not the required length: expected <expected>, got <actual>."
@@ -841,11 +871,6 @@ ERROR_CLASSES_JSON = """
   "SESSION_OR_CONTEXT_NOT_EXISTS" : {
     "message" : [
       "SparkContext or SparkSession should be created first.."
-    ]
-  },
-  "SHOULD_NOT_DATAFRAME": {
-    "message": [
-      "Argument `<arg_name>` should not be a DataFrame."
     ]
   },
   "SLICE_WITH_STEP" : {
@@ -1016,6 +1041,11 @@ ERROR_CLASSES_JSON = """
   "UNSUPPORTED_OPERATION" : {
     "message" : [
       "<operation> is not supported."
+    ]
+  },
+  "UNSUPPORTED_PACKAGE_VERSION" : {
+    "message" : [
+      "<package_name> >= <minimum_version> must be installed; however, your version is <current_version>."
     ]
   },
   "UNSUPPORTED_PARAM_TYPE_FOR_HIGHER_ORDER_FUNCTION" : {
